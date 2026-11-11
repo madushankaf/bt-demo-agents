@@ -67,7 +67,10 @@ def unverified_claims(token: str) -> dict:
 
 
 def bearer(headers) -> str | None:
-    value = headers.get("authorization") or headers.get("Authorization") or ""
+    """The caller's bearer token. Behind Agent Manager's agent gateway (OAuth front door), the verified token arrives
+    as x-forwarded-authorization; services still verify it themselves."""
+    value = (headers.get("authorization") or headers.get("Authorization") or headers.get("x-forwarded-authorization")
+             or headers.get("X-Forwarded-Authorization") or "")
     return value[7:].strip() if value.lower().startswith("bearer ") else None
 
 
