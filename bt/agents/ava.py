@@ -147,7 +147,8 @@ def summarize(state: S) -> S:
         return {"status": "ok", "data": facts, "steps": steps, "response": cached["summary"]}
     llm = rt.llm_chat(agent, [
         {"role": "system", "content": "You are AVA, a private-wealth advisor assistant. Summarise in 3 short bullet points. No PII."},
-        {"role": "user", "content": f"Summarise account {acct}: {json.dumps(facts)}"},
+        {"role": "user", "content": f"Summarise account {acct}. Client360Agent's brief: {sub.get('brief') or 'none'}. "
+                                    f"Data: {json.dumps(facts)}"},
     ], state["args"]["model"], state["delegated"])
     steps = step({"steps": steps}, "llm", {k: v for k, v in llm.items() if k != "content"})
     if not llm["ok"]:

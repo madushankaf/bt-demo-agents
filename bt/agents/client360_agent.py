@@ -1,9 +1,11 @@
-"""Client360Agent — sub-agent that fetches client data via the client360 MCP proxy.
+"""Client360Agent — AVA's sub-agent for client data: it fetches the portfolio and performance through the AI Gateway
+(client360 MCP server), then asks the approved model, through its own LLM configuration, for a short client brief.
 
 POST /invoke {"task": "portfolio_summary", "account": "12345"}
   Authorization: Bearer <delegated token issued to AVA>   (validated by the AMP ingress gateway)
 It exchanges that token for its own hop (sub=user, act={Client360Agent, act={AVA}}) and calls tools.
 """
+import json
 import os
 
 import uvicorn
@@ -62,8 +64,20 @@ def invoke(task: Task, request: Request):
         claims = unverified_claims(delegated)
         calls = {name: rt.mcp(agent, MCP_URL, "tools/call", {"name": name, "arguments": {"account": task.account}}, delegated)
                  for name in ("getPortfolio", "getPerformance")}
+        ok = all(c["ok"] for c in calls.values())
+        brief, llm = None, None
+        if ok:  # its own reasoning step: a short analyst brief, written by the approved model through the gateway
+            facts = {k: v["result"] for k, v in calls.items()}
+            llm = rt.llm_chat(agent, [
+                {"role": "system", "content": ("You are Client360Agent, a portfolio analyst assisting another agent. Write a "
+                                               "3-line client brief: value and allocation, performance vs benchmark, one "
+                                               "point to watch. No personal data.")},
+                {"role": "user", "content": f"Account {task.account}: {json.dumps(facts)}"},
+            ], os.getenv("LLM_MODEL", "gpt-4o-mini"), delegated)
+            brief = llm.get("content") if llm.get("ok") else None
         return {
-            "ok": all(c["ok"] for c in calls.values()), "agent": AGENT_NAME, "agent_version": AGENT_VERSION,
+            "ok": ok, "agent": AGENT_NAME, "agent_version": AGENT_VERSION, "brief": brief,
+            "llm": {k: v for k, v in (llm or {}).items() if k != "content"} or None,
             "hop": {"user": claims.get("username") or claims.get("sub"), "agent_chain": agent_chain(claims), "act": claims.get("act"),
                     "delegated_scope": claims.get("scope") or " ".join(claims.get("scp") or []), "inbound_token": rt.claims_summary(upstream),
                     "actor_token": rt.claims_summary(agent.cached(os.getenv("DELEGATION_ACTOR_RESOURCE") or None)),

@@ -6,7 +6,7 @@ platform-hosted agents:
 | Agent | What it does | `APP` | Interface |
 |---|---|---|---|
 | **AVA** | Advisor assistant (LangGraph). Delegates portfolio work to Client360Agent; calls tools and the approved model through the AI Gateway; pauses for human approval on high-risk actions. | `ava` | chat API (`POST /chat`, `POST /resume`) |
-| **Client360Agent** | Sub-agent that fetches client portfolio data. | `client360-agent` | custom API (`POST /invoke`, `openapi/client360-agent.json`) |
+| **Client360Agent** | AVA's sub-agent: fetches portfolio data through the AI Gateway and writes AVA a short client brief with the approved model. | `client360-agent` | custom API (`POST /invoke`, `openapi/client360-agent.json`) |
 
 One image for both: `Dockerfile`, with `APP` selecting the agent.
 
