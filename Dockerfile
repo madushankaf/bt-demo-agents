@@ -8,6 +8,9 @@ RUN pip install -r requirements.lock
 COPY bt ./bt
 RUN pip install --no-deps .
 ENV APP=ava
+# Agent Manager runs agents as a non-root user only.
+RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin agent
+USER 10001
 EXPOSE 8000
 # With Agent Manager's tracing settings present (AMP_OTEL_ENDPOINT), run under its instrumentation wrapper.
 CMD ["sh", "-c", "case \"$APP\" in ava) M=bt.agents.ava ;; client360-agent) M=bt.agents.client360_agent ;; \
