@@ -254,11 +254,16 @@ def email(state: S) -> S:
     # Gateway says a human must approve: file the request (once), then pause in the next node.
     h = {"authorization": f"Bearer {state['delegated']}"}
     rt.propagate.inject(h)
-    req = rt.http.post(f"{APPROVAL_URL}/requests", headers=h, json={
-        "action": "sendClientEmail", "args": payload, "reason": state["message"],
-        # Risk context for the approver: action class + the agent's registered risk tier (AMP label, injected at deploy).
-        "risk": {"action_class": "execute", "agent": AGENT_NAME, "agent_risk_tier": ENV("AGENT_RISK_TIER", "unknown"),
-                 "agent_owner": ENV("AGENT_OWNER", "unknown")}}).json()
+    try:
+        req = rt.http.post(f"{APPROVAL_URL}/requests", headers=h, json={
+            "action": "sendClientEmail", "args": payload, "reason": state["message"],
+            # Risk context for the approver: action class + the agent's registered risk tier (AMP label, injected at deploy).
+            "risk": {"action_class": "execute", "agent": AGENT_NAME, "agent_risk_tier": ENV("AGENT_RISK_TIER", "unknown"),
+                     "agent_owner": ENV("AGENT_OWNER", "unknown")}}).json()
+    except rt.httpx.HTTPError as e:  # e.g. a platform-hosted sandbox that may not reach the approval service
+        return {"status": "error", "steps": step({"steps": steps}, "approval_requested", {"ok": False, "error": str(e)[:200]}),
+                "response": ("This email needs an approver, but I couldn't reach the approval service from here "
+                             f"({type(e).__name__}). Nothing was sent.")}
     return {"status": "awaiting_approval", "steps": step({"steps": steps}, "approval_requested", {"approval_id": req["id"]}),
             "data": {"approval_id": req["id"], "payload": payload}}
 
