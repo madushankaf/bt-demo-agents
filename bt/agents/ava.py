@@ -103,7 +103,10 @@ def delegate(state: S) -> S:
                # The two identities that went into the exchange, and what came out (claims only, never tokens).
                "user_token": rt.claims_summary(state["user_token"]),
                "actor_token": rt.claims_summary(agent.cached(ENV("DELEGATION_ACTOR_RESOURCE") or None)),
-               "delegated_token": rt.claims_summary(tok), "sts": rt.STS_URL}
+               "delegated_token": rt.claims_summary(tok), "sts": rt.STS_URL,
+               # For the portal: the two sign-ins and the token they produce (previews + claims, never whole tokens).
+               "views": {"agent": rt.token_view(agent.cached()), "agent_signed_in_now": agent.last_minted,
+                         "delegated": rt.token_view(tok)}}
         return {"delegated": tok, "steps": step(state, "delegate", out)}
     except (PermissionError, rt.AgentIdentityNotProvisioned, rt.httpx.HTTPStatusError) as e:
         return {"status": "denied", "response": f"I can't act on your behalf: {e}",

@@ -92,6 +92,18 @@ class AgentID:
         return body["access_token"]
 
 
+def token_view(token: str | None) -> dict | None:
+    """What the portal shows for a token: a short preview (never the whole token) and its decoded claims."""
+    if not token:
+        return None
+    import jwt
+    try:
+        claims = jwt.decode(token, options={"verify_signature": False})
+    except jwt.PyJWTError:
+        return None
+    return {"preview": f"{token[:14]}…{token[-6:]}", "claims": claims}
+
+
 def claims_summary(token: str | None, keys=("iss", "sub", "username", "aut", "client_id", "aud", "scope", "roles", "role", "accounts",
                                           "agent_chain", "act", "token_use", "exp")) -> dict:
     """Decoded claims (never the token itself) for showing who a token says the caller is."""
@@ -290,6 +302,8 @@ def mcp(agent: AgentID, url: str, method: str, params: dict | None, delegated: s
         evlog.emit(SERVICE, "mcp.request", url=url, method=method, tool=(params or {}).get("name"),
                    authorization=f"AgentID {auth['agent_token'].get('client_id')}",
                    x_bt_delegation=f"user {auth['delegation'].get('sub')} via {' → '.join(auth['delegation'].get('agent_chain') or [])}")
+        auth["request"] = {"method": "POST", "url": url, "tool": (params or {}).get("name") or method,
+                           "authorization": token_view(headers["authorization"][7:])}  # what the gateway receives
         r = http.post(url, json=body, headers=headers)
         if ((r.status_code == 530 or r.status_code in DOWN_STATUS and any(k in r.text.lower() for k in UPSTREAM_DOWN))
                 and (params or {}).get("name") not in NO_RETRY_TOOLS):

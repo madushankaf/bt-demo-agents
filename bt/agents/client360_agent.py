@@ -81,7 +81,9 @@ def invoke(task: Task, request: Request):
             "hop": {"user": claims.get("username") or claims.get("sub"), "agent_chain": agent_chain(claims), "act": claims.get("act"),
                     "delegated_scope": claims.get("scope") or " ".join(claims.get("scp") or []), "inbound_token": rt.claims_summary(upstream),
                     "actor_token": rt.claims_summary(agent.cached(os.getenv("DELEGATION_ACTOR_RESOURCE") or None)),
-                    "delegated_token": rt.claims_summary(delegated)},
+                    "delegated_token": rt.claims_summary(delegated),
+                    "views": {"agent": rt.token_view(agent.cached()), "agent_signed_in_now": agent.last_minted,
+                              "delegated": rt.token_view(delegated)}},
             "calls": calls,
         }
 
